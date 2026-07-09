@@ -1,16 +1,17 @@
-==================================================================
-COMANDOS PRINCIPAIS - MYSQL VIA TERMINAL
-==================================================================
-
-------------------------------------------------------------------
-ACESSANDO O MYSQL VIA TERMINAL
-------------------------------------------------------------------
+ACESSAR O MYSQL
 
 mysql -u root -p                              -- conecta ao MySQL solicitando senha de forma interativa
 mysql -u root -p nome_do_banco                -- conecta e já seleciona um banco de dados específico
-mysql -u root -p -h endereco_host -P porta    -- conecta a um host e porta específicos (não localhost)
-EXIT;                                             -- sai do MySQL
-QUIT;                                             -- sai do MySQL (mesma função do EXIT)
+QUIT;                                         -- sai do MySQL (mesma função do EXIT)
+
+------------------------------------------------------------------
+BACKUP LOGICO (via mysqldump - executado no terminal, fora do MySQL)
+------------------------------------------------------------------
+
+mysqldump -u root -p nome_do_banco > backup.sql      -- gera backup logico completo do banco bd_empresa
+mysql -u root -p nome_do_banco < backup.sql          -- restaura um backup logico dentro do banco bd_empresa
+
+Precisa ter o banco criado para restaurar o backup
 
 ------------------------------------------------------------------
 NAVEGACAO E INFORMACOES GERAIS
@@ -19,12 +20,12 @@ NAVEGACAO E INFORMACOES GERAIS
 SHOW DATABASES;                                   -- lista todos os bancos de dados existentes
 USE nome_do_banco;                                -- seleciona um banco de dados para trabalhar
 SHOW TABLES;                                      -- lista as tabelas do banco de dados selecionado
-DESCRIBE nome_tabela;                             -- mostra a estrutura (colunas) de uma tabela
 DESC nome_tabela;                                 -- mesma funcao do DESCRIBE (forma abreviada)
-SHOW CREATE TABLE nome_tabela;                    -- mostra o comando CREATE TABLE completo da tabela
 SELECT DATABASE();                                -- mostra qual banco de dados esta em uso no momento
-SELECT VERSION();                                 -- mostra a versao do MySQL instalada
 STATUS;                                           -- mostra informacoes da conexao e do servidor atual
+SHOW CREATE TABLE nome_tabela;                    -- mostra o comando CREATE TABLE completo da tabela
+
+Uso "Show create table" para ver como a tabela foi criada, caso precise criar uma auxiliar com os mesmos atributos e regras de negócio.
 
 ------------------------------------------------------------------
 DDL - DATA DEFINITION LANGUAGE (definicao de estrutura)
@@ -35,8 +36,22 @@ DROP DATABASE nome_do_banco;                      -- apaga um banco de dados por
 
 CREATE TABLE nome_tabela (                        -- cria uma nova tabela
     id INT AUTO_INCREMENT PRIMARY KEY,            -- coluna id como chave primaria autoincrementada
-    nome VARCHAR(100) NOT NULL                    -- coluna nome, texto obrigatorio (nao nulo)
+    nome VARCHAR(100) NOT NULL,                   -- coluna nome, texto obrigatorio (nao nulo)
+    email VARCHAR(100) UNIQUE,                    -- constraint UNIQUE: nao permite valores repetidos
+    idade INT CHECK (idade >= 0),                 -- constraint CHECK: valida uma condicao para a coluna
+    id_outra_tabela INT,                          -- coluna que vai servir de chave estrangeira (FK)
+    CONSTRAINT fk_nome_outra_tabela                -- nome da constraint (facilita alterar/remover depois)
+        FOREIGN KEY (id_outra_tabela)              -- FK: liga essa coluna a outra tabela
+        REFERENCES outra_tabela(id)                -- tabela e coluna referenciadas (geralmente a PK)
+        ON DELETE CASCADE                          -- se o registro pai for apagado, apaga os filhos tambem
+        ON UPDATE CASCADE                          -- se o id pai mudar, atualiza automaticamente aqui
 );
+
+ALTER TABLE nome_tabela                           -- adiciona uma FK em uma tabela ja existente
+    ADD CONSTRAINT fk_nome_outra_tabela
+    FOREIGN KEY (id_outra_tabela) REFERENCES outra_tabela(id);
+
+ALTER TABLE nome_tabela DROP FOREIGN KEY fk_nome_outra_tabela; -- remove uma foreign key pelo nome da constraint
 
 ALTER TABLE nome_tabela ADD COLUNA VARCHAR(50);   -- adiciona uma nova coluna a uma tabela existente
 ALTER TABLE nome_tabela MODIFY COLUNA INT;        -- altera o tipo de dado de uma coluna existente
@@ -62,60 +77,35 @@ WHERE condicao;                                   -- (sempre use WHERE, senao at
 DELETE FROM nome_tabela WHERE condicao;           -- exclui registros que atendem a condicao especificada
 
 ------------------------------------------------------------------
-USUARIOS E PRIVILEGIOS
+VIEWS (consultas salvas, funcionam como tabelas virtuais)
 ------------------------------------------------------------------
 
-SHOW GRANTS FOR 'usuario'@'localhost';            -- mostra os privilegios concedidos a um usuario
-CREATE USER 'novo_usuario'@'localhost'            -- cria um novo usuario no MySQL
-IDENTIFIED BY 'senha';                            -- define a senha do novo usuario
+CREATE VIEW nome_view AS                          -- cria uma view a partir de uma consulta
+    SELECT coluna1, coluna2 FROM nome_tabela
+    WHERE condicao;
 
-GRANT ALL PRIVILEGES ON nome_do_banco.*            -- concede todos os privilegios sobre um banco
-TO 'usuario'@'localhost';                         -- para um usuario especifico
+CREATE OR REPLACE VIEW nome_view AS               -- cria a view ou substitui se ja existir
+    SELECT coluna1, coluna2 FROM nome_tabela
+    WHERE condicao;
 
-REVOKE ALL PRIVILEGES ON nome_do_banco.*           -- revoga todos os privilegios sobre um banco
-FROM 'usuario'@'localhost';                       -- de um usuario especifico
-
-FLUSH PRIVILEGES;                                 -- aplica/recarrega as mudancas de privilegios feitas
-DROP USER 'usuario'@'localhost';                  -- remove um usuario do MySQL
+SELECT * FROM nome_view;                          -- consulta a view como se fosse uma tabela normal
+SHOW CREATE VIEW nome_view;                        -- mostra o comando usado para criar a view
+DROP VIEW nome_view;                               -- apaga a view (nao afeta os dados das tabelas originais)
 
 ------------------------------------------------------------------
 OTIMIZACAO E DIAGNOSTICO (uteis para tuning de consultas)
 ------------------------------------------------------------------
 
 EXPLAIN SELECT * FROM tabela WHERE coluna = valor; -- mostra o plano de execucao usado pelo SGBD na consulta
+
+CREATE INDEX nome_indice ON nome_tabela (coluna);  -- cria um indice em uma coluna para acelerar buscas/joins
+CREATE UNIQUE INDEX nome_indice ON nome_tabela (coluna); -- cria um indice que tambem garante valores unicos
+DROP INDEX nome_indice ON nome_tabela;             -- remove um indice existente da tabela
+
 SHOW INDEX FROM nome_tabela;                       -- lista os indices existentes em uma tabela
 SHOW PROCESSLIST;                                  -- mostra os processos/consultas em execucao no momento
 SHOW ENGINE INNODB STATUS;                         -- mostra status detalhado do motor de armazenamento InnoDB
 
-------------------------------------------------------------------
-COMANDOS UTILITARIOS DO CLIENTE MYSQL (nao sao SQL, sao do prompt)
-------------------------------------------------------------------
+Para executar algum script direto de fora
 
-\c                                                 -- cancela o comando atual (limpa o buffer de entrada)
-\G                                                 -- exibe o resultado da consulta em formato vertical
-source arquivo.sql;                               -- executa um script SQL inteiro a partir de um arquivo
-\!                                                 -- executa um comando do sistema operacional sem sair do MySQL
-\h                                                 -- exibe a ajuda do cliente MySQL
-help                                               -- mesma funcao do \h (exibe ajuda)
-
-------------------------------------------------------------------
-DICA PRATICA - EXECUTANDO SCRIPTS .SQL COMPLETOS
-------------------------------------------------------------------
-
--- Direto do terminal (fora do MySQL):
-mysql -u usuario -p nome_do_banco < script.sql    -- executa um arquivo .sql inteiro no banco especificado
-
--- De dentro do MySQL (apos conectar):
-source /caminho/para/script.sql;                  -- executa um arquivo .sql inteiro usando o comando source
-
-------------------------------------------------------------------
-BACKUP LOGICO (via mysqldump - executado no terminal, fora do MySQL)
-------------------------------------------------------------------
-
-mysqldump -u root -p bd_empresa > backup.sql      -- gera backup logico completo do banco bd_empresa
-mysqldump -u root -p --databases bd1 bd2 > b.sql  -- gera backup logico de multiplos bancos especificos
-mysql -u root -p bd_empresa < backup.sql          -- restaura um backup logico dentro do banco bd_empresa
-
-==================================================================
-FIM DO ARQUIVO
-==================================================================
+mysql -u root -p nome_do_banco < script.sql    -- executa um arquivo .sql inteiro no banco especificado
