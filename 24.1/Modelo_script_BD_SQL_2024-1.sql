@@ -3,9 +3,9 @@
 --                    SCRIPT DE CRIACAO (DDL)
 --
 -- Data Criacao ...........: 21/03/2018
--- Autor(es) ..............: Ana Maria Braga
+-- Autor(es) ..............: Arthur da Silveira Sousa
 -- Banco de Dados .........: MySQL 8.0
--- Base de Dados (nome) ...: bdFinanceiro
+-- Base de Dados (nome) ...: booksA
 --
 -- PROJETO => 01 Base de Dados
 --         => 11 Tabelas
@@ -26,10 +26,8 @@
 --
 -- ---------------------------------------------------------
 
- Incluir a partir dessa  linha as instrucoes  SQL
- correspondentes  ao que  este  script executaria
-   (apague estas ultimas linhas de orientacao inicial
-    e os objetos do banco de dadps que NAO existiram
-    para criacao de seus primeiros scripts  nessa
-    disciplina, respeitando o formato apresentado e
-    exigido acima).
+-- 1) Restauração do banco de dados 
+-- 
+-- mysql -u root -p booksA < backup_Projeto_booksA.sql
+-- 
+-- 2) 

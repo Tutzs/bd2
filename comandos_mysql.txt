@@ -1,5 +1,7 @@
 ACESSAR O MYSQL
 
+Senha do mysql unbgama
+
 mysql -u root -p                              -- conecta ao MySQL solicitando senha de forma interativa
 mysql -u root -p nome_do_banco                -- conecta e já seleciona um banco de dados específico
 QUIT;                                         -- sai do MySQL (mesma função do EXIT)
