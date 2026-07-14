@@ -111,3 +111,131 @@ SHOW ENGINE INNODB STATUS;                         -- mostra status detalhado do
 Para executar algum script direto de fora
 
 mysql -u root -p nome_do_banco < script.sql    -- executa um arquivo .sql inteiro no banco especificado
+
+------------------------------------------------------------------
+FUNCOES DE AGREGACAO (AVG, SUM, COUNT, MIN, MAX)
+------------------------------------------------------------------
+
+As funcoes de agregacao recebem varias linhas e devolvem UM unico valor resumido.
+Sozinhas (sem GROUP BY) resumem a tabela inteira em uma unica linha.
+
+SELECT COUNT(*)        FROM musica;            -- conta quantos registros (linhas) existem na tabela
+SELECT AVG(length)     FROM musica;            -- media da duracao de todas as musicas
+SELECT SUM(length)     FROM musica;            -- soma total da duracao de todas as musicas
+SELECT MIN(length)     FROM musica;            -- menor duracao encontrada
+SELECT MAX(length)     FROM musica;            -- maior duracao encontrada
+
+SELECT COUNT(DISTINCT artists_id) FROM hitmusical; -- conta valores distintos (ignora repetidos)
+
+------------------------------------------------------------------
+GROUP BY + HAVING (agrega por grupos)
+------------------------------------------------------------------
+
+O GROUP BY divide as linhas em grupos e aplica a funcao de agregacao para CADA grupo.
+Regra: tudo que estiver no SELECT e nao for funcao de agregacao PRECISA estar no GROUP BY.
+
+SELECT artists_id, COUNT(*) AS total_musicas    -- para cada artista, conta quantas musicas tocaram
+FROM hitmusical
+GROUP BY artists_id;                            -- forma um grupo por artista
+
+SELECT station, AVG(m.length) AS media_duracao  -- media de duracao das musicas por estacao de radio
+FROM hitmusical h
+JOIN musica m ON m.id = h.songs_id
+GROUP BY station;
+
+-- HAVING filtra DEPOIS de agrupar (o WHERE filtra ANTES de agrupar, linha a linha):
+SELECT songs_id, COUNT(*) AS contagem
+FROM hitmusical
+GROUP BY songs_id
+HAVING contagem > 150                           -- so mostra grupos cuja contagem passou de 150
+ORDER BY contagem DESC;
+
+Ordem logica de execucao: FROM -> WHERE -> GROUP BY -> HAVING -> SELECT -> ORDER BY.
+Por isso o WHERE nao enxerga o apelido (alias) da agregacao, mas o HAVING e o ORDER BY enxergam.
+
+------------------------------------------------------------------
+FUNCOES DE JANELA / PARTICIONAMENTO (OVER + PARTITION BY)
+------------------------------------------------------------------
+
+Diferente do GROUP BY (que "junta" as linhas do grupo em uma so), a funcao de janela
+CALCULA o resumo do grupo mas MANTEM todas as linhas originais, mostrando o valor ao lado.
+
+Sintaxe: funcao(...) OVER (PARTITION BY coluna [ORDER BY coluna])
+    PARTITION BY = divide as linhas em "janelas" (grupos), igual ao GROUP BY, porem sem colapsar as linhas
+    ORDER BY (dentro do OVER) = define a ordem usada por rankings e somas acumuladas
+
+-- Exemplo 1: mostra cada musica e, ao lado, a media de duracao das musicas do MESMO artista:
+SELECT id, name, artists_id, length,
+       AVG(length) OVER (PARTITION BY artists_id) AS media_do_artista
+FROM musica;
+
+-- Exemplo 2: soma total tocada por estacao, repetida em cada linha (sem perder os detalhes):
+SELECT h.id, h.station, m.length,
+       SUM(m.length) OVER (PARTITION BY h.station) AS total_da_estacao
+FROM hitmusical h
+JOIN musica m ON m.id = h.songs_id;
+
+-- Funcoes de RANKING (precisam do ORDER BY dentro do OVER):
+SELECT id, name, artists_id, length,
+       ROW_NUMBER() OVER (PARTITION BY artists_id ORDER BY length DESC) AS posicao, -- numera 1,2,3... sem empate
+       RANK()       OVER (PARTITION BY artists_id ORDER BY length DESC) AS rank_pos, -- empate divide o mesmo n. (pula o proximo)
+       DENSE_RANK() OVER (PARTITION BY artists_id ORDER BY length DESC) AS dense_pos -- empate divide o mesmo n. (nao pula)
+FROM musica;
+
+-- Soma acumulada (running total) ordenando dentro da janela:
+SELECT id, artists_id, length,
+       SUM(length) OVER (PARTITION BY artists_id ORDER BY id) AS soma_acumulada
+FROM musica;
+
+Resumo pratico: use GROUP BY quando quer UMA linha por grupo (relatorio resumido);
+use OVER (PARTITION BY ...) quando quer manter o detalhe de cada linha E ainda ver o resumo/ranking do grupo.
+
+------------------------------------------------------------------
+DESCOBRIR O NOME DO SERVIÇO MYSQL (no PowerShell como Administrador)
+------------------------------------------------------------------
+
+O nome do serviço pode variar: MySQL80, MySQL8.0, MySQL, MariaDB, etc.
+Para descobrir o nome exato do seu serviço, rode:
+
+Get-Service | findstr -i mysql
+
+Esse comando lista TODOS os serviços que contenham "mysql" no nome.
+Procure pela coluna "Name" — aquele é o nome que você vai usar nos comandos.
+
+Exemplo de saída:
+    Status   Name                DisplayName
+    ------   ----                -----------
+    Running  MySQL80             MySQL80
+    Stopped  MySQL               MySQL Community Server
+
+Se aparecer "MySQL80", use "MySQL80" nos comandos abaixo.
+Se aparecer só "MySQL", use "MySQL" nos comandos abaixo.
+
+------------------------------------------------------------------
+RESET DE SENHA DO ROOT (se esqueceu a senha)
+------------------------------------------------------------------
+
+PASSO 1: Parar o serviço MySQL no PowerShell (como Administrador)
+net stop [NOME_DO_SERVICO]
+(Exemplo: net stop MySQL80  OU  net stop MySQL)
+
+PASSO 2: Iniciar o MySQL sem autenticação
+mysqld --skip-grant-tables
+
+PASSO 3: Abrir OUTRO PowerShell (nova janela) e conectar sem senha
+mysql -u root
+
+PASSO 4: Dentro do MySQL, executar estes comandos:
+FLUSH PRIVILEGES;
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'sua_nova_senha';
+EXIT;
+
+PASSO 5: Voltar no PowerShell anterior (onde rodou mysqld) e pressionar CTRL + C para parar
+
+PASSO 6: Reiniciar o serviço normalmente (use o nome que você descobriu no passo anterior)
+net start [NOME_DO_SERVICO]
+(Exemplo: net start MySQL80  OU  net start MySQL)
+
+PASSO 7: Testar a nova senha
+mysql -u root -p
+(digita a senha nova)
