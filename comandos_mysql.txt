@@ -239,3 +239,9 @@ net start [NOME_DO_SERVICO]
 PASSO 7: Testar a nova senha
 mysql -u root -p
 (digita a senha nova)
+
+------------------------------------------------------------------
+CLAUDE CLI - LOGOUT
+------------------------------------------------------------------
+
+claude logout                                     -- encerra a sessao atual e remove as credenciais salvas do Claude CLI
