@@ -113,6 +113,115 @@ Para executar algum script direto de fora
 mysql -u root -p nome_do_banco < script.sql    -- executa um arquivo .sql inteiro no banco especificado
 
 ------------------------------------------------------------------
+USUARIOS E CONTROLE DE ACESSO (administracao de usuarios e privilegios)
+------------------------------------------------------------------
+
+CRIANDO USUARIOS
+
+CREATE USER 'nome_usuario'@'localhost' IDENTIFIED BY 'senha_secreta';
+                                                  -- cria um novo usuario, conectando apenas localmente
+CREATE USER 'nome_usuario'@'%' IDENTIFIED BY 'senha_secreta';
+                                                  -- cria um novo usuario que pode conectar de qualquer IP
+CREATE USER 'nome_usuario'@'192.168.1.%' IDENTIFIED BY 'senha_secreta';
+                                                  -- cria usuario restrito a uma faixa de IPs
+
+REMOVENDO USUARIOS
+
+DROP USER 'nome_usuario'@'localhost';             -- remove um usuario do SGBD
+DROP USER 'nome_usuario'@'%';                     -- remove usuario com acesso de qualquer IP
+
+Precisa ter certeza que o usuario nao e proprietario de objetos (tabelas, views, procedures, etc.)
+
+ATRIBUINDO PRIVILEGIOS
+
+GRANT SELECT ON banco_dados.tabela TO 'nome_usuario'@'localhost';
+                                                  -- concede privilégio SELECT em tabela especifica
+GRANT SELECT, INSERT, UPDATE ON banco_dados.* TO 'nome_usuario'@'localhost';
+                                                  -- concede múltiplos privilégios em todas tabelas do banco
+GRANT ALL PRIVILEGES ON banco_dados.* TO 'nome_usuario'@'localhost';
+                                                  -- concede TODOS os privilégios no banco inteiro
+GRANT CREATE TABLE ON *.* TO 'nome_usuario'@'localhost';
+                                                  -- concede privilégio de sistema (CREATE TABLE em qualquer banco)
+GRANT SELECT ON banco_dados.* TO 'nome_usuario'@'localhost' WITH GRANT OPTION;
+                                                  -- concede privilégio e permite que usuario repasse para outros
+
+REVOGANDO PRIVILEGIOS
+
+REVOKE SELECT ON banco_dados.tabela FROM 'nome_usuario'@'localhost';
+                                                  -- remove um privilégio específico do usuario
+REVOKE ALL PRIVILEGES ON banco_dados.* FROM 'nome_usuario'@'localhost';
+                                                  -- revoga todos os privilégios do usuario no banco
+REVOKE GRANT OPTION ON banco_dados.* FROM 'nome_usuario'@'localhost';
+                                                  -- remove a capacidade do usuario repassar privilégios
+
+VERIFICANDO USUARIOS E PRIVILEGIOS
+
+SELECT user, host FROM mysql.user;                -- lista todos os usuarios cadastrados e seus hosts
+SHOW GRANTS FOR 'nome_usuario'@'localhost';       -- mostra todos os privilégios de um usuario especifico
+SHOW GRANTS FOR CURRENT_USER();                   -- mostra privilégios do usuario logado no momento
+
+ALTERANDO SENHA DO USUARIO
+
+ALTER USER 'nome_usuario'@'localhost' IDENTIFIED BY 'nova_senha';
+                                                  -- altera a senha de um usuario existente
+SET PASSWORD FOR 'nome_usuario'@'localhost' = PASSWORD('nova_senha');
+                                                  -- forma alternativa para alterar senha (mais antiga)
+
+PAPEIS (ROLES) - simplificam a administracao
+
+CREATE ROLE nome_papel;                           -- cria um papel (perfil) para agrupar privilégios
+DROP ROLE nome_papel;                             -- remove um papel existente
+GRANT SELECT, INSERT ON banco_dados.* TO nome_papel;
+                                                  -- concede privilégios ao papel
+GRANT nome_papel TO 'nome_usuario'@'localhost';  -- atribui um papel a um usuario
+REVOKE nome_papel FROM 'nome_usuario'@'localhost';
+                                                  -- remove um papel de um usuario
+
+PRIVILEGIOS DE SISTEMA: CREATE, DROP, ALTER, CREATE USER, DROP USER, CREATE DATABASE, etc
+PRIVILEGIOS DE OBJETO: SELECT, INSERT, UPDATE, DELETE, etc
+
+O usuario é dono dos objetos que cria e tem todos os privilégios sobre eles.
+
+VERIFICANDO OBJETOS ANTES DE REMOVER USUARIO
+
+SELECT TABLE_SCHEMA, TABLE_NAME 
+FROM INFORMATION_SCHEMA.TABLES 
+WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
+                                                  -- lista todas as tabelas (excluindo sistemas)
+
+SELECT TABLE_SCHEMA, TABLE_NAME 
+FROM INFORMATION_SCHEMA.VIEWS 
+WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
+                                                  -- lista todas as views (excluindo sistemas)
+
+SELECT ROUTINE_SCHEMA, ROUTINE_NAME, ROUTINE_TYPE 
+FROM INFORMATION_SCHEMA.ROUTINES 
+WHERE ROUTINE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
+ORDER BY ROUTINE_SCHEMA, ROUTINE_NAME;
+                                                  -- lista procedures e functions
+
+SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME 
+FROM INFORMATION_SCHEMA.STATISTICS 
+WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
+ORDER BY TABLE_SCHEMA, TABLE_NAME;
+                                                  -- lista indices criados
+
+SELECT TABLE_SCHEMA, COUNT(*) AS total_objetos
+FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_SCHEMA NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
+GROUP BY TABLE_SCHEMA;
+                                                  -- mostra contagem de objetos por banco de dados
+
+INFORMATION_SCHEMA eh um banco de dados especial que armazena metadados (informacoes sobre a estrutura do BD)
+TABLE_SCHEMA = nome do banco de dados (database/esquema) que a tabela pertence
+TABLE_NAME = nome da tabela propriamente dita
+
+IMPORTANTE: antes de fazer DROP USER, certifique-se que o usuario nao criou tabelas, views ou procedures.
+Se encontrar objetos, remova-os primeiro DROP TABLE/VIEW/PROCEDURE ou transfira a propriedade para outro usuario.
+
+------------------------------------------------------------------
 FUNCOES DE AGREGACAO (AVG, SUM, COUNT, MIN, MAX)
 ------------------------------------------------------------------
 
